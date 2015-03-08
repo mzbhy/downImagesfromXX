@@ -5,9 +5,9 @@
 需要设置代理
 '''
 import urllib2
-import urllib
 from bs4 import BeautifulSoup
 import os
+import socket
 
 addr = 'http://t66y.com/thread0806.php?fid=16&page='
 prefix = 'http://t66y.com/'
@@ -37,13 +37,20 @@ def gethtml(url):
     except urllib2.URLError, e:
         print e.reason
         return ""
+    except Exception, e:
+        print e
+        return ""
     else:
         try:
-            html = response.read().decode('gb2312','ignore')
+            thepage = response.read()
         except urllib2.URLError, e:
             print e.reason
             return ""
+        except Exception, e:
+            print e
+            return ""
         else:
+            html = thepage.decode('gb2312','ignore')
             return html
 
 def getpage(page):
@@ -72,7 +79,9 @@ def findtiezi_link(html):
     for tr in trs:
         td = tr.find('td', style="text-align:left;padding-left:8px")
         h = td.find('h3')
-        title = h.get_text().replace('?', u'？')
+        # 去掉问号和/
+        title = h.get_text().replace('?', '_')
+        title = title.replace('/','')
 
         if os.path.exists(title):   # 当前已经有了这个帖子了
             print u'%s 已经下载过了，此次跳过' % (title)
@@ -94,49 +103,66 @@ def getimgs(titles, links):
     if titles == []:
         return
     idx = 0
-
-    count = 0;
     for link in links:
         title = titles[idx]
         idx = idx + 1
 
-        print u'开始第 %d 个帖子' % (idx)
+        print u'开始分析第 %d 个帖子的链接' % (idx)
         print u'帖子的题目是 %s' % title
 
-        if count >= 2:
-            break
-        count = count + 1
         imglinks = []
+
         jumpurl = prefix + link
 
         html = gethtml(jumpurl)
-        soup = BeautifulSoup(html)
+        if html:
+            soup = BeautifulSoup(html)
+        else:
+            continue
 
         inputs = soup.find('body').find('div', class_ = "tpc_content").find_all('input',recursive=True)
+
         for inp in inputs:
             imglink = inp.get('src')
             print imglink
             imglinks.append(imglink)
 
-        mkdirname = title.replace('?', u'？')
+        mkdirname = title.replace('?', '_')
 
         if os.path.exists(mkdirname):    # 以前处理过了
             continue
 
         os.mkdir(mkdirname)
 
+        print mkdirname
+
         print u'开始下载图片，帖子题目是 %s' %mkdirname
         for imglink in imglinks:
             try:
-                imgreq = urllib2.urlopen(imglink)
+                imgreq = urllib2.urlopen(imglink,timeout = 20)
             except urllib2.URLError, e:
                 print e.reason
+                continue
+            except Exception, e:
+                print e
+                continue
             else:
-                img = imgreq.read()
-                with open(mkdirname+'/'+ imglink[-20:],'wb') as code:
-                    code.write(img)
-                print u'图片 %s 处理完了' %imglink
-        print u'第 %d 个帖子下载完了' % (idx)
+                try:
+                    img = imgreq.read()
+                except urllib2.URLError, e:
+                    print e.reason
+                    continue
+                except Exception, e:
+                    print e
+                    continue
+                else:
+                    surfix = imglink[-20:]
+                    imgname = mkdirname+'/'+ surfix.replace('/','')
+                    print imgname
+                    with open(imgname, 'wb') as writter:
+                        writter.write(img)
+                print u'图片 %s 处理完了' % imglink
+        print u'第 %d 个帖子下载完了' % idx
 
 
 start = 1
@@ -151,7 +177,7 @@ for page in range(start, end + 1):
         titles, links = findtiezi_link(html)
         print u'第 %d 页一共找到了 %d 个帖子' %(page, len(titles))
         getimgs(titles, links)
-    print u'第 %d 页下载完了' % (page)
+    print u'第 %d 页下载完了' % page
 
 print 'Done'
 
