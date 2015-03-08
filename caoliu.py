@@ -128,13 +128,14 @@ def getimgs(titles, links):
         print u'开始下载图片，帖子题目是 %s' %mkdirname
         for imglink in imglinks:
             try:
-                img = urllib2.urlopen(imglink).read()
+                imgreq = urllib2.urlopen(imglink)
             except urllib2.URLError, e:
                 print e.reason
             else:
-                print u'图片 %s 处理完了' %imglink
+                img = imgreq.read()
                 with open(mkdirname+'/'+ imglink[-20:],'wb') as code:
                     code.write(img)
+                print u'图片 %s 处理完了' %imglink
         print u'第 %d 个帖子下载完了' % (idx)
 
 
@@ -147,7 +148,8 @@ for page in range(start, end + 1):
     html = getpage(page)
 
     if html:
-        titles, links = findtiezi_link(getpage(page))
+        titles, links = findtiezi_link(html)
+        print u'第 %d 页一共找到了 %d 个帖子' %(page, len(titles))
         getimgs(titles, links)
     print u'第 %d 页下载完了' % (page)
 
