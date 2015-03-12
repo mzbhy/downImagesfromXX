@@ -7,7 +7,6 @@
 import urllib2
 from bs4 import BeautifulSoup
 import os
-import socket
 
 addr = 'http://t66y.com/thread0806.php?fid=16&page='
 prefix = 'http://t66y.com/'
@@ -16,15 +15,16 @@ headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:35.0) Gecko/20100101 Firefox/35.0'
           }
 
-## 代理服务器设置
+## 代理服务器设置 如果使用Goagent，应该不用修改
 proxies = {
         'http': 'http://127.0.0.1:8087',
         'https': 'http://127.0.0.1:8087',
-}
+          }
 
 proxy_handler = urllib2.ProxyHandler(proxies)
-#null_proxy_handler = urllib2.ProxyHandler({})
+null_proxy_handler = urllib2.ProxyHandler({})
 
+# 如果可以直接访问1024，这里可以换成 null_proxy_handler，但没有测试
 opener = urllib2.build_opener(proxy_handler)
 urllib2.install_opener(opener)
 
@@ -42,20 +42,14 @@ def gethtml(url):
     req = urllib2.Request(url, headers = headers)
     try:
         response = urllib2.urlopen(url,timeout = 20)
-    except urllib2.URLError, e:
-        print e.reason
-        return ""
     except Exception, e:
-        print e
+        print u"%s 打开失败" % url
         return ""
     else:
         try:
             thepage = response.read()
-        except urllib2.URLError, e:
-            print e.reason
-            return ""
         except Exception, e:
-            print e
+            print u"%s 打开失败" % url
             return ""
         else:
             html = thepage.decode('gb2312','ignore')
@@ -137,39 +131,32 @@ def getimgs(titles, links):
         try:
             os.mkdir(mkdirname)
         except Exception, e:
-            print u'不合法的文件目录名'
+            print u'无法创建目录 %s' % mkdirname
             continue
         print mkdirname
 
         print u'开始下载图片，帖子题目是 %s' %mkdirname
+
         for imglink in imglinks:
             try:
                 imgreq = urllib2.urlopen(imglink,timeout = 20)
-            except urllib2.URLError, e:
-                print e.reason
-                continue
             except Exception, e:
-                print e
+                print u"%s 打开失败" % imglink
                 continue
             else:
                 try:
                     img = imgreq.read()
-                except urllib2.URLError, e:
-                    print e.reason
-                    continue
                 except Exception, e:
-                    print e
+                    print u"从链接读取图像失败 %s" % imglink
                     continue
                 else:
                     surfix = imglink[-20:]
                     imgname = mkdirname+'/'+ process_str(surfix)
-                    print imgname
                     try:
                         with open(imgname, 'wb') as writter:
                             writter.write(img)
                     except Exception, e:
-                        print u'不能写入图片'
-                        print imgname
+                        print u'不能写入图片 %s' %imgname
                         continue
                 print u'图片 %s 处理完了' % imglink
         print u'第 %d 个帖子下载完了' % idx
@@ -189,5 +176,5 @@ for page in range(start, end + 1):
         getimgs(titles, links)
     print u'第 %d 页下载完了' % page
 
-print 'Done'
+print u'全部任务完成'
 
