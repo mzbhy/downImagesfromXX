@@ -7,7 +7,6 @@
 import urllib2
 from bs4 import BeautifulSoup
 import os
-import socket
 
 addr = 'http://t66y.com/thread0806.php?fid=16&page='
 prefix = 'http://t66y.com/'
@@ -16,38 +15,41 @@ headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:35.0) Gecko/20100101 Firefox/35.0'
           }
 
-## 代理服务器设置
+## 代理服务器设置 如果使用Goagent，应该不用修改
 proxies = {
         'http': 'http://127.0.0.1:8087',
         'https': 'http://127.0.0.1:8087',
-}
+          }
 
 proxy_handler = urllib2.ProxyHandler(proxies)
 null_proxy_handler = urllib2.ProxyHandler({})
 
+# 如果可以直接访问1024，这里可以换成 null_proxy_handler，但没有测试
 opener = urllib2.build_opener(proxy_handler)
 urllib2.install_opener(opener)
+
+# 用作目录和文件名称时不合法的字符
+invalidchars = ['?','\\','/',':','*','<','>','|','\"']
+
+
+def process_str(oristr):
+    for invalidchar in invalidchars:
+        oristr = oristr.replace(invalidchar, '_')
+    return oristr
+
 
 def gethtml(url):
     req = urllib2.Request(url, headers = headers)
     try:
         response = urllib2.urlopen(url,timeout = 20)
-       # html = response.read().decode('gb2312','ignore')
-       # return html
-    except urllib2.URLError, e:
-        print e.reason
-        return ""
     except Exception, e:
-        print e
+        print u"%s 打开失败" % url
         return ""
     else:
         try:
             thepage = response.read()
-        except urllib2.URLError, e:
-            print e.reason
-            return ""
         except Exception, e:
-            print e
+            print u"%s 打开失败" % url
             return ""
         else:
             html = thepage.decode('gb2312','ignore')
@@ -79,9 +81,7 @@ def findtiezi_link(html):
     for tr in trs:
         td = tr.find('td', style="text-align:left;padding-left:8px")
         h = td.find('h3')
-        # 去掉问号和/
-        title = h.get_text().replace('?', '_')
-        title = title.replace('/','')
+        title = process_str(h.get_text())
 
         if os.path.exists(title):   # 当前已经有了这个帖子了
             print u'%s 已经下载过了，此次跳过' % (title)
@@ -127,49 +127,46 @@ def getimgs(titles, links):
             print imglink
             imglinks.append(imglink)
 
-        mkdirname = title.replace('?', '_')
-
-        if os.path.exists(mkdirname):    # 以前处理过了
+        mkdirname = title
+        try:
+            os.mkdir(mkdirname)
+        except Exception, e:
+            print u'无法创建目录 %s' % mkdirname
             continue
-
-        os.mkdir(mkdirname)
-
         print mkdirname
 
         print u'开始下载图片，帖子题目是 %s' %mkdirname
+
         for imglink in imglinks:
             try:
                 imgreq = urllib2.urlopen(imglink,timeout = 20)
-            except urllib2.URLError, e:
-                print e.reason
-                continue
             except Exception, e:
-                print e
+                print u"%s 打开失败" % imglink
                 continue
             else:
                 try:
                     img = imgreq.read()
-                except urllib2.URLError, e:
-                    print e.reason
-                    continue
                 except Exception, e:
-                    print e
+                    print u"从链接读取图像失败 %s" % imglink
                     continue
                 else:
                     surfix = imglink[-20:]
-                    imgname = mkdirname+'/'+ surfix.replace('/','')
-                    print imgname
-                    with open(imgname, 'wb') as writter:
-                        writter.write(img)
+                    imgname = mkdirname+'/'+ process_str(surfix)
+                    try:
+                        with open(imgname, 'wb') as writter:
+                            writter.write(img)
+                    except Exception, e:
+                        print u'不能写入图片 %s' %imgname
+                        continue
                 print u'图片 %s 处理完了' % imglink
         print u'第 %d 个帖子下载完了' % idx
 
 
 start = 1
-end = 2
+end = 5
 
 for page in range(start, end + 1):
-    print u'开始第 %d 页' % (page)
+    print u'开始第 %d 页' % page
 
     html = getpage(page)
 
@@ -179,5 +176,5 @@ for page in range(start, end + 1):
         getimgs(titles, links)
     print u'第 %d 页下载完了' % page
 
-print 'Done'
+print u'全部任务完成'
 
